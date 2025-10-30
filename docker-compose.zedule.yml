@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: zedule-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zedule
+      POSTGRES_PASSWORD: zedule_password
+      POSTGRES_DB: zedule
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zedule"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zedule:
+    build:
+      context: .
+      dockerfile: Dockerfile.zedule
+      args:
+        DATABASE_URL: postgresql://zedule:zedule_password@postgres:5432/zedule
+        NEXTAUTH_SECRET: changeme_generate_with_openssl
+        CALENDSO_ENCRYPTION_KEY: changeme_generate_with_openssl
+        NEXT_PUBLIC_WEBAPP_URL: http://localhost:3000
+        NEXT_PUBLIC_API_V2_URL: ${NEXT_PUBLIC_API_V2_URL}
+        CALCOM_TELEMETRY_DISABLED: ${CALCOM_TELEMETRY_DISABLED}
+        NEXTAUTH_URL: ${NEXTAUTH_URL}
+        DATABASE_DIRECT_URL: ${DATABASE_URL}
+        CSP_POLICY: ${CSP_POLICY}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME}
+        NEXT_PUBLIC_SUPPORT_MAIL_ADDRESS: ${NEXT_PUBLIC_SUPPORT_MAIL_ADDRESS}
+        NEXT_PUBLIC_COMPANY_NAME: ${NEXT_PUBLIC_COMPANY_NAME}
+    container_name: zedule-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://zedule:zedule_password@postgres:5432/zedule
+      DATABASE_DIRECT_URL: postgresql://zedule:zedule_password@postgres:5432/zedule
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: changeme_generate_with_openssl
+      CALENDSO_ENCRYPTION_KEY: changeme_generate_with_openssl
+      NEXT_PUBLIC_WEBAPP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_NAME: Zedule
+      NEXT_PUBLIC_IS_E2E: "0"
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: zedule-network
